@@ -21,7 +21,7 @@ WRO Future Engineers zahtijeva razvoj naprednog autonomnog vozila sposobnog za n
 Naš robot koristi napredne tehnologije slične onima u našem glavnom projektu Nexus (Mars Rover):
 
 * **Mikrokontroleri/Računala:** NVIDIA Jetson Nano / Raspberry Pi (za AI obradu) i ESP32/Arduino (za kontrolu motora).
-* **Senzori:** LiDAR za 2D mapiranje okoline, ultrazvučni senzori za detekciju prepreka, te visokorezolucijske kamere.
+* **Senzori:** Ultrazvučni senzori za detekciju prepreka, te visokorezolucijske kamere.
 * **Programski jezici:**
 * C++ za low-level kontrolu i firmware.
 * Python za algoritme računalnog vida (OpenCV) i AI modele.
@@ -48,18 +48,9 @@ Naš put je jasno definiran:
 
 Naša stečena znanja s WRO-a direktno primjenjujemo na projekt Nexus, prvi hrvatski srednjoškolski Mars Rover namijenjen natjecanju European Rover Challenge.
 
-## Sponzorstvo i podrška
-
-Naš rad zahtijeva značajna sredstva za opremu (senzore, motore, AI računala) i putovanja. Ukoliko želite podržati budućnost hrvatske robotike, nudimo sponzorske pakete:
-
-* **Perseverance:** Generalni sponzori.
-* **Curiosity / Opportunity / Ingenuity:** Logotipi na robotu, odjeći i medijskim objavama.
-
-Saznajte više na: [https://ctrlwin.centar-pozitron.hr/](https://ctrlwin.centar-pozitron.hr/)
-
 ### Kontakt:
-
+* **Web-stranica:** [https://ctrlwin.centar-pozitron.hr/](https://ctrlwin.centar-pozitron.hr/)
 * **Email:** ctrlwin@centar-pozitron.hr
-* **Lokacija:** Pazin / Poreč, Hrvatska
+* **Lokacija:** Pazin, Hrvatska
 
 *Razvijeno od strane Ctrl+Win tima.*
