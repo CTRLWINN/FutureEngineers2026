@@ -2,6 +2,9 @@
 
 Ovaj dokument opisuje softver za autonomnog robota (Jetson Nano + ESP32).
 
+![info](https://github.com/user-attachments/assets/354caa10-8fa8-497f-ab50-0302a6e180ce)
+
+
 ## Struktura Projekta
 
 ### 1. Jetson Nano Aplikacija (`jetson_app/`)
@@ -55,3 +58,4 @@ Napisan u C++ (Arduino ekosustav), podijeljen na biblioteke.
 - **Sigurnost**: Robot će stati ako izgubi vezu s Jetsonom na duže od 500ms.
 - **Kalibracija**: Prije prve vožnje provjerite smjer vrtnje motora i PWM granice u `Kretanje.cpp`.
 - **Sonar**: Sonari koriste `pulseIn` funkciju koja kratko blokira (max 15ms po senzoru). Ako to uzrokuje probleme s brzim serijskim podacima, razmotrite prelazak na interrupts.
+
