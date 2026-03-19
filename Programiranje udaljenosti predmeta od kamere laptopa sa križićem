@@ -1,0 +1,70 @@
+#Test123
+import cv2
+import numpy as np
+
+def detect_and_label_objects():
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Greška: Ne mogu otvoriti kameru.")
+        return
+
+    # --- KONSTANTE ---
+    W_STVARNA = 6.0        # Stvarna širina predmeta u cm
+    FOKALNA = 600         # Tvoja kalibrirana fokalna duljina
+    LOWER_GREEN = np.array([40, 40, 40])
+    UPPER_GREEN = np.array([90, 255, 255])
+
+    while True:
+        ret, frame = cap.read()
+        if not ret: break
+
+        # 1. Odredi središte ekrana (Center point)
+        h_frame, w_frame = frame.shape[:2]
+        cx, cy = w_frame // 2, h_frame // 2
+        
+        # Nacrtaj mali križić u centru ekrana za referencu
+        cv2.drawMarker(frame, (cx, cy), (255, 255, 255), cv2.MARKER_CROSS, 20, 2)
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, LOWER_GREEN, UPPER_GREEN)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for contour in contours:
+            if cv2.contourArea(contour) > 1000:
+                x, y, w, h = cv2.boundingRect(contour)
+                
+                # --- IZRAČUN UDALJENOSTI (DUBINA) ---
+                udaljenost_cm = (W_STVARNA * FOKALNA) / w
+
+                # --- PITAGORA (ODMAK OD CENTRA) ---
+                # Središte predmeta
+                ox, oy = x + w // 2, y + h // 2
+                
+                dx = ox - cx # Razlika po x osi
+                dy = oy - cy # Razlika po y osi
+                
+                # Hipotenuza (Pitagora)
+                odmak_px = np.sqrt(dx**2 + dy**2)
+
+                # --- CRTANJE ---
+                # Okvir oko predmeta
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                
+                # Linija od centra ekrana do centra predmeta (Hipotenuza)
+                cv2.line(frame, (cx, cy), (ox, oy), (255, 0, 0), 2)
+
+                # Ispis podataka
+                cv2.putText(frame, f"UDALJENOST: {udaljenost_cm:.1f} cm", (x, y - 10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                
+                cv2.putText(frame, f"PITAGORA (odmak): {int(odmak_px)} px", (x, y + h + 30), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+
+        cv2.imshow('Depth and Pythagoras Offset', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    detect_and_label_objects()
