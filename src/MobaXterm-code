@@ -1,0 +1,165 @@
+# -- coding: utf-8 --
+import cv2
+import numpy as np
+import time
+import threading
+from jetracer.nvidia_racecar import NvidiaRacecar
+from pynput import keyboard
+
+class WRO_Robot:
+    def __init__(self):
+        # Inicijalizacija auta
+        self.car = NvidiaRacecar()
+        self.car.steering_offset = 0.0
+        self.car.steering_gain = 0.8
+        self.car.throttle_gain = 0.5
+        
+        self.current_throttle = 0.0
+        self.throttle_step = 0.05
+        self.max_throttle = 0.7
+        
+        self.calibration_mode = False
+        self.running = True
+
+        # --- DEFINICIJA RASPONA BOJA (HSV) ---
+        self.lower_red1 = np.array([0, 120, 70])
+        self.upper_red1 = np.array([10, 255, 255])
+        self.lower_red2 = np.array([170, 120, 70])
+        self.upper_red2 = np.array([180, 255, 255])
+        self.lower_green = np.array([40, 40, 40])
+        self.upper_green = np.array([90, 255, 255])
+
+        # Inicijalizacija kamere
+        self.cap = cv2.VideoCapture(self._gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER) 
+        
+        self.camera_thread = threading.Thread(target=self._view_camera)
+        self.camera_thread.daemon = True
+        self.camera_thread.start()
+
+        print("Robot inicijaliziran. WSAD za vožnju, SPACE za kalibraciju, ESC za izlaz.")
+
+    def _gstreamer_pipeline(self, capture_width=1280, capture_height=720, display_width=640, display_height=360, framerate=30, flip_method=0):
+        return (
+            "nvarguscamerasrc ! "
+            "video/x-raw(memory:NVMM), "
+            "width=(int)%d, height=(int)%d, " % (capture_width, capture_height) +
+            "format=(string)NV12, framerate=(fraction)%d/1 ! " % framerate +
+            "nvvidconv flip-method=%d ! " % flip_method +
+            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! " % (display_width, display_height) +
+            "videoconvert ! "
+            "video/x-raw, format=(string)BGR ! appsink"
+        )
+
+    def process_color(self, frame, mask, color_bgr, label):
+        """Pomoćna funkcija za crtanje kontura oko detektirane boje."""
+        mask = cv2.erode(mask, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
+        
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        for contour in contours:
+            if cv2.contourArea(contour) > 1000:
+                x, y, w, h = cv2.boundingRect(contour)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), color_bgr, 2)
+                info_text = f"{label} w={w}px"
+                cv2.putText(frame, info_text, (x, y - 10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_bgr, 2)
+
+    def _view_camera(self):
+        while self.running:
+            ret, frame = self.cap.read()
+            if ret:
+                # Konverzija u HSV za detekciju boja
+                hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+                # Maska za crvenu
+                mask_red1 = cv2.inRange(hsv, self.lower_red1, self.upper_red1)
+                mask_red2 = cv2.inRange(hsv, self.lower_red2, self.upper_red2)
+                mask_red = cv2.addWeighted(mask_red1, 1.0, mask_red2, 1.0, 0.0)
+
+                # Maska za zelenu
+                mask_green = cv2.inRange(hsv, self.lower_green, self.upper_green)
+
+                # Obrada i crtanje
+                self.process_color(frame, mask_red, (0, 0, 255), "CRVENA")
+                self.process_color(frame, mask_green, (0, 255, 0), "ZELENA")
+
+                # Prikaz finalne slike
+                cv2.imshow("Robot AI View", frame)
+                
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    self.running = False
+                    break
+                    
+        self.cap.release()
+        cv2.destroyAllWindows()
+
+    def on_press(self, key):
+        try:
+            k = key.char
+        except AttributeError:
+            k = key.name
+
+        if k == 'space':
+            self.calibration_mode = not self.calibration_mode
+            status = "UKLJUČEN" if self.calibration_mode else "ISKLJUČEN"
+            print(f"\n--- Mod kalibracije: {status} ---")
+            return
+
+        if self.calibration_mode:
+            if k == 'o':
+                self.car.steering_offset -= 0.01
+                print(f"Offset: {self.car.steering_offset:.2f}")
+            elif k == 'p':
+                self.car.steering_offset += 0.01
+                print(f"Offset: {self.car.steering_offset:.2f}")
+            elif k == 'enter':
+                self.calibration_mode = False
+                print(f"Spremljen offset: {self.car.steering_offset:.2f}")
+        else:
+            if k == 'w':
+                self.car.throttle = self.current_throttle if self.current_throttle != 0 else 0.5
+            elif k == 's':
+                self.car.throttle = -0.6 # Malo jače za unazad
+            elif k == 'a':
+                self.car.steering = 1.0
+            elif k == 'd':
+                self.car.steering = -1.0
+            elif k in ['plus', '+', '=']:
+                self.current_throttle = min(self.max_throttle, self.current_throttle + self.throttle_step)
+                print(f"Snaga motora: {self.current_throttle:.2f}")
+            elif k in ['minus', '-']:
+                self.current_throttle = max(0.0, self.current_throttle - self.throttle_step)
+                print(f"Snaga motora: {self.current_throttle:.2f}")
+
+    def on_release(self, key):
+        try:
+            k = key.char
+        except AttributeError:
+            k = key.name
+
+        if not self.calibration_mode:
+            if k in ['w', 's']:
+                self.car.throttle = 0.0
+            if k in ['a', 'd']:
+                self.car.steering = 0.0
+        
+        if key == keyboard.Key.esc:
+            self.running = False
+            return False
+
+    def run(self):
+        with keyboard.Listener(on_press=self.on_press, on_release=self.on_release) as listener:
+            listener.join()
+
+if __name__ == "__main__":
+    robot = WRO_Robot()
+    try:
+        robot.run()
+    except KeyboardInterrupt:
+        print("Program prekinut.")
+    finally:
+        robot.running = False
+        robot.car.throttle = 0.0
+        robot.car.steering = 0.0
+        time.sleep(0.5)
